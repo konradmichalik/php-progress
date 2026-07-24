@@ -1,0 +1,34 @@
+{
+    "name": "konradmichalik/php-progress",
+    "description": "Modern, dependency-free CLI progress bars & spinners for PHP — smooth sub-cell rendering, truecolor gradients, dynamic single-line layout.",
+    "type": "library",
+    "keywords": ["cli", "console", "progress-bar", "spinner", "terminal", "progress", "tui"],
+    "license": "MIT",
+    "authors": [
+        { "name": "Konrad Michalik" }
+    ],
+    "require": {
+        "php": ">=8.1",
+        "ext-mbstring": "*"
+    },
+    "require-dev": {
+        "phpstan/phpstan": "^2.2"
+    },
+    "suggest": {
+        "symfony/console": "Pass \\$output->getStream() to ->to() for Symfony/TYPO3 commands"
+    },
+    "autoload": {
+        "psr-4": { "KonradMichalik\\PhpProgress\\": "src/" }
+    },
+    "scripts": {
+        "test": "php tests/run.php",
+        "analyse": "phpstan analyse",
+        "check": [
+            "@analyse",
+            "@test"
+        ]
+    },
+    "config": {
+        "sort-packages": true
+    }
+}
