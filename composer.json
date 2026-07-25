@@ -3,7 +3,7 @@
     "description": "Modern, dependency-free CLI progress bars & spinners for PHP — smooth sub-cell rendering, truecolor gradients, dynamic single-line layout.",
     "type": "library",
     "keywords": ["cli", "console", "progress-bar", "spinner", "terminal", "progress", "tui"],
-    "license": "MIT",
+    "license": "GPL-3.0-or-later",
     "authors": [
         { "name": "Konrad Michalik" }
     ],

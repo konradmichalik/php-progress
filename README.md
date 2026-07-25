@@ -3,7 +3,7 @@
 [![CI](https://github.com/konradmichalik/php-progress/actions/workflows/ci.yml/badge.svg)](https://github.com/konradmichalik/php-progress/actions/workflows/ci.yml)
 [![PHPStan](https://img.shields.io/badge/PHPStan-level%20max-brightgreen.svg)](https://phpstan.org/)
 [![PHP](https://img.shields.io/badge/php-%3E%3D8.1-777bb4.svg)](https://www.php.net/)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg)](LICENSE)
 
 Modern, dependency-free CLI progress bars & spinners for PHP 8.1+.
 
@@ -300,4 +300,6 @@ suite on PHP 8.1–8.4 plus PHPStan at level max.
 
 ## License
 
-MIT
+Copyright © 2026 Konrad Michalik.
+
+Licensed under the [GNU General Public License v3.0 or later](LICENSE) (`GPL-3.0-or-later`).
