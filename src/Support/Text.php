@@ -108,11 +108,55 @@ final class Text
     }
 
     /**
+     * Truncate a styled line to a visible width, keeping escape sequences
+     * (zero width) intact and appending a reset so colour never bleeds past the
+     * cut. Last-resort guard for terminals too narrow for even the essential,
+     * undroppable columns — keeps the invariant "line width <= terminal width".
+     */
+    public static function clampAnsi(string $s, int $max): string
+    {
+        if ($max <= 0) {
+            return '';
+        }
+        if (self::width(self::stripAnsi($s)) <= $max) {
+            return $s;
+        }
+        $tokens = preg_split(
+            '/(\e\][^\x07\e]*(?:\x07|\e\\\\)|\e\[[0-9;?]*[ -\/]*[@-~])/u',
+            $s,
+            -1,
+            PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY,
+        ) ?: [];
+        $out = '';
+        $w = 0;
+        $sawEscape = false;
+        foreach ($tokens as $tok) {
+            if ($tok !== '' && $tok[0] === "\e") {
+                $out .= $tok; // escape sequence: keep verbatim, contributes no width
+                $sawEscape = true;
+                continue;
+            }
+            foreach (preg_split('//u', $tok, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $ch) {
+                $cw = mb_strwidth($ch, 'UTF-8');
+                if ($w + $cw > $max) {
+                    return $out . ($sawEscape ? "\e[0m" : '');
+                }
+                $out .= $ch;
+                $w += $cw;
+            }
+        }
+
+        return $out . ($sawEscape ? "\e[0m" : '');
+    }
+
+    /**
      * Neutralize untrusted display text before it reaches the terminal.
-     * Scrubs invalid UTF-8, strips escape sequences (OSC/DCS/CSI), and removes
-     * every remaining C0 control byte and DEL. Without this, a value such as a
-     * filename or a subprocess log line could carry `\r`, `\e]0;…\a` or `\e[2J`
-     * and corrupt the line or drive the terminal (title changes, screen clears).
+     * Scrubs invalid UTF-8, strips escape sequences (OSC/DCS/CSI in both their
+     * 7-bit ESC-prefixed and 8-bit C1 forms), and removes every remaining C0/C1
+     * control byte and DEL. Without this, a value such as a filename or a
+     * subprocess log line could carry `\r`, `\e]0;…\a`, `\e[2J` (or the 8-bit
+     * `\u{009b}2J`) and corrupt the line or drive the terminal (title changes,
+     * screen clears).
      */
     public static function sanitize(string $s): string
     {
@@ -122,10 +166,17 @@ final class Text
         // Drop malformed bytes so later width math and /u regexes stay valid.
         $s = (string) mb_convert_encoding($s, 'UTF-8', 'UTF-8');
         // Remove escape-introduced sequences so their printable payload does not linger.
-        $s = preg_replace('/\e\][^\x07\e]*(?:\x07|\e\\\\)/', '', $s) ?? $s;   // OSC
-        $s = preg_replace('/\e[P^_X][^\e]*(?:\e\\\\)?/', '', $s) ?? $s;       // DCS/APC/PM/SOS
-        $s = preg_replace('/\e\[[0-9;?]*[ -\/]*[@-~]/', '', $s) ?? $s;        // CSI
-        // Hard guarantee: no control byte (incl. lone ESC, CR, LF, TAB, BEL, BS, DEL) survives.
+        $s = preg_replace('/\e\][^\x07\e]*(?:\x07|\e\\\\)/', '', $s) ?? $s;   // OSC (7-bit)
+        $s = preg_replace('/\e[P^_X][^\e]*(?:\e\\\\)?/', '', $s) ?? $s;       // DCS/APC/PM/SOS (7-bit)
+        $s = preg_replace('/\e\[[0-9;?]*[ -\/]*[@-~]/', '', $s) ?? $s;        // CSI (7-bit)
+        // Same sequence shapes in their 8-bit C1 form (valid UTF-8 survives the
+        // convert above, and none of the ESC-prefixed regexes match these).
+        $s = preg_replace('/\x{009D}[^\x{0007}\x{009C}]*(?:\x{0007}|\x{009C})?/u', '', $s) ?? $s;      // OSC (C1)
+        $s = preg_replace('/[\x{0090}\x{0098}\x{009E}\x{009F}][^\x{009C}]*(?:\x{009C})?/u', '', $s) ?? $s; // DCS/SOS/PM/APC (C1)
+        $s = preg_replace('/\x{009B}[0-9;?]*[ -\/]*[@-~]/u', '', $s) ?? $s;   // CSI (C1)
+        // Hard guarantee: no C0/C1 control code point (incl. lone ESC, CR, LF,
+        // TAB, BEL, BS, DEL and every 8-bit C1) survives.
+        $s = preg_replace('/[\x{0080}-\x{009F}]/u', '', $s) ?? $s;
         return preg_replace('/[\x00-\x1F\x7F]/', '', $s) ?? $s;
     }
 }

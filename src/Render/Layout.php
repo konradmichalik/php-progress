@@ -72,22 +72,32 @@ final class Layout
             }
         }
 
-        // Assemble in declared segment order.
+        // Assemble in declared segment order, tracking the visible (plain) width
+        // so we can enforce the terminal-width invariant as a last resort.
         $out = [];
+        $visible = 0;
         foreach ($this->segments as $seg) {
             $key = $seg->key();
             if ($seg instanceof FlexSegment) {
                 $barW = $this->expand ? $flexAvail : min($flexAvail, $this->flexMax);
                 $barW = max(3, $barW);
                 $out[] = $seg->renderFlex($task, $frame, $barW)->out($frame->colored());
+                $visible += $barW;
                 continue;
             }
             if (isset($chunks[$key])) {
                 $out[] = $chunks[$key]->out($frame->colored());
+                $visible += $chunks[$key]->width();
             }
         }
+        $visible += max(0, \count($out) - 1) * $sepW;
 
-        return implode(self::SEP, $out);
+        $line = implode(self::SEP, $out);
+
+        // When even the undroppable columns (bar minimum, percent, sticky fields)
+        // exceed the terminal, hard-truncate so the line never wraps and corrupts
+        // the CR-based repaint. Normal-width lines pass through untouched.
+        return $visible > $frame->width ? Text::clampAnsi($line, $frame->width) : $line;
     }
 
     /**

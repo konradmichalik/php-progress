@@ -315,6 +315,69 @@ try {
 }
 assert_true($rejected, 'frames([]) throws InvalidArgumentException instead of DivisionByZeroError');
 
+echo "-- reflow: line never exceeds terminal, even when undroppable columns don't fit\n";
+foreach ([6, 9, 20, 24, 26] as $w) {
+    [$stream, $read] = memStream();
+    $ms = 0.0;
+    $bar = Live::bar(100, '')->to($stream)->caps($tty($w))->clock(function () use (&$ms) { return $ms; })->start();
+    $bar->set('mode', 'IRRE cascade delete children', sticky: true);   // undroppable + oversized
+    $ms += 100; $bar->progress(50); $bar->tick();
+    $max = 0;
+    foreach (frames($read()) as $f) { $max = max($max, Text::width($f)); }
+    assert_true($max <= $w, "width {$w}: sticky-field line clamped to terminal ({$max})");
+}
+[$stream, $read] = memStream();
+$ms = 0.0;
+$bar = Live::bar(100, '')->columns('bar', 'percent')->to($stream)->caps($tty(5))->clock(function () use (&$ms) { return $ms; })->start();
+$ms += 100; $bar->progress(50); $bar->tick();
+$max = 0;
+foreach (frames($read()) as $f) { $max = max($max, Text::width($f)); }
+assert_true($max <= 5, "width 5: bar+percent clamped to terminal ({$max})");
+
+echo "-- security: Text::sanitize neutralizes 8-bit C1 control sequences\n";
+assert_true(Text::sanitize("\u{009b}2J") === '', 'sanitize strips 8-bit CSI (U+009B) sequence');
+assert_true(Text::sanitize("\u{009d}0;PWNED\u{009c}") === '', 'sanitize strips 8-bit OSC (U+009D) title injection');
+assert_true(preg_match('/[\x{0080}-\x{009F}]/u', Text::sanitize("a\u{0090}\u{009e}\u{009f}b")) !== 1, 'no C1 control code point survives');
+assert_true(Text::sanitize("plain/path.mp4") === 'plain/path.mp4', 'sanitize still leaves printable text intact');
+
+echo "-- security: Text::clampAnsi keeps visible width within budget and closes colour\n";
+$styled = "\e[38;2;1;2;3mABCDEFG\e[0m";
+$clamped = Text::clampAnsi($styled, 3);
+assert_true(Text::width(Text::stripAnsi($clamped)) === 3, 'clampAnsi cuts to exact visible width');
+assert_true(str_ends_with($clamped, "\e[0m"), 'clampAnsi appends a reset so colour cannot bleed');
+assert_true(Text::clampAnsi($styled, 99) === $styled, 'clampAnsi leaves a fitting line untouched');
+
+echo "-- process runner: keeps the un-terminated overflow remainder (no lost bytes)\n";
+[$stream, $read] = memStream();
+$live = Live::spinner('x')->to($stream)->caps($tty(60))->fps(1000.0);
+$seen = '';
+Progress::process(['bash', '-c', 'printf "%1048576s" "" | tr " " A; printf "MARKER"; printf "%80s" "" | tr " " B; printf "\n"'])
+    ->onLine(static function ($l, $stream, $line) use (&$seen) { $seen .= $line; })
+    ->live($live)
+    ->run();
+assert_true(str_contains($seen, 'MARKER'), 'over-MAX_LINE remainder is preserved, not discarded');
+
+echo "-- process runner: a throwing parse() callback still tears the child down\n";
+[$stream, $read] = memStream();
+$live = Live::bar(100.0, 'x')->to($stream)->caps($tty(60))->fps(1000.0);
+$threw = false;
+try {
+    Progress::process(['bash', '-c', 'echo 1%; sleep 30'])
+        ->parse(static fn (string $l) => str_contains($l, '1%') ? throw new RuntimeException('boom') : null)
+        ->live($live)
+        ->run();
+} catch (RuntimeException) {
+    $threw = true;
+}
+assert_true($threw, 'callback exception propagates out of run()');
+if (stripos(PHP_OS, 'linux') === 0 && \function_exists('getmypid')) {
+    usleep(200000);
+    $kids = (string) @shell_exec('ps -eo ppid,comm | awk -v p=' . (int) getmypid() . ' \'$1==p\'');
+    assert_true(!str_contains($kids, 'sleep') && !str_contains($kids, 'bash'), 'no child process leaks after the exception');
+} else {
+    echo "  skip  child-leak check (needs Linux + ps)\n";
+}
+
 echo "\nALL TESTS PASSED\n";
 
 echo "-- integration: auto-start on first mutation (no ->start() needed)\n";

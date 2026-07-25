@@ -101,65 +101,81 @@ final class Proc
         $partial = ['stdout' => '', 'stderr' => ''];
         $exitCode = null;
 
-        while (true) {
-            $read = [];
-            if (!feof($pipes[1])) {
-                $read[] = $pipes[1];
-            }
-            if (!feof($pipes[2])) {
-                $read[] = $pipes[2];
-            }
-            if ($read === []) {
-                usleep(20000);
-            } else {
-                $w = null;
-                $e = null;
-                @stream_select($read, $w, $e, 0, 80000);
-                foreach ($read as $r) {
-                    $name = $r === $pipes[1] ? 'stdout' : 'stderr';
-                    $data = (string) fread($r, 65536);
-                    if ($data === '') {
-                        continue;
-                    }
-                    $this->{$name} .= $data;
-                    if (\strlen($this->{$name}) > self::CAPTURE_TAIL) {
-                        // Keep only the tail: enough to diagnose a failure, bounded memory.
-                        $this->{$name} = substr($this->{$name}, -self::CAPTURE_TAIL);
-                    }
-                    $partial[$name] .= $data;
-                    // rsync & friends update in place via \r -- treat \r like \n.
-                    $lines = preg_split('/\r\n|\r|\n/', $partial[$name]) ?: [];
-                    $partial[$name] = array_pop($lines) ?? '';
-                    // A process emitting no line terminator must not grow $partial without bound.
-                    if (\strlen($partial[$name]) > self::MAX_LINE) {
-                        $this->handleLine($live, $name, substr($partial[$name], 0, self::MAX_LINE));
-                        $partial[$name] = '';
-                    }
-                    foreach ($lines as $line) {
-                        $this->handleLine($live, $name, $line);
-                    }
+        // try/finally so a throwing parse()/onLine() callback can never leak the
+        // child process or its pipes: the finally terminates a still-running child
+        // and closes every handle before the exception propagates.
+        try {
+            while (true) {
+                $read = [];
+                if (!feof($pipes[1])) {
+                    $read[] = $pipes[1];
                 }
-            }
-
-            $live->tick();
-
-            $status = proc_get_status($proc);
-            if (!$status['running']) {
-                $exitCode ??= $status['exitcode'];
+                if (!feof($pipes[2])) {
+                    $read[] = $pipes[2];
+                }
                 if ($read === []) {
-                    break;
+                    usleep(20000);
+                } else {
+                    $w = null;
+                    $e = null;
+                    @stream_select($read, $w, $e, 0, 80000);
+                    foreach ($read as $r) {
+                        $name = $r === $pipes[1] ? 'stdout' : 'stderr';
+                        $data = (string) fread($r, 65536);
+                        if ($data === '') {
+                            continue;
+                        }
+                        $this->{$name} .= $data;
+                        if (\strlen($this->{$name}) > self::CAPTURE_TAIL) {
+                            // Keep only the tail: enough to diagnose a failure, bounded memory.
+                            $this->{$name} = substr($this->{$name}, -self::CAPTURE_TAIL);
+                        }
+                        $partial[$name] .= $data;
+                        // rsync & friends update in place via \r -- treat \r like \n.
+                        $lines = preg_split('/\r\n|\r|\n/', $partial[$name]) ?: [];
+                        $partial[$name] = array_pop($lines) ?? '';
+                        // A process emitting no line terminator must not grow $partial without bound.
+                        // Flush the first MAX_LINE bytes as a line, but keep the remainder buffered
+                        // so nothing between the cut and the buffer end is lost.
+                        if (\strlen($partial[$name]) > self::MAX_LINE) {
+                            $this->handleLine($live, $name, substr($partial[$name], 0, self::MAX_LINE));
+                            $partial[$name] = substr($partial[$name], self::MAX_LINE);
+                        }
+                        foreach ($lines as $line) {
+                            $this->handleLine($live, $name, $line);
+                        }
+                    }
+                }
+
+                $live->tick();
+
+                $status = proc_get_status($proc);
+                if (!$status['running']) {
+                    $exitCode ??= $status['exitcode'];
+                    if ($read === []) {
+                        break;
+                    }
                 }
             }
-        }
 
-        foreach (['stdout', 'stderr'] as $name) {
-            if ($partial[$name] !== '') {
-                $this->handleLine($live, $name, $partial[$name]);
+            foreach (['stdout', 'stderr'] as $name) {
+                if ($partial[$name] !== '') {
+                    $this->handleLine($live, $name, $partial[$name]);
+                }
             }
+        } finally {
+            // $proc is still open here (proc_close runs only below): terminate the
+            // child if we are unwinding while it is still alive, then close handles.
+            if (proc_get_status($proc)['running']) {
+                proc_terminate($proc);
+            }
+            foreach ([$pipes[1], $pipes[2]] as $pipe) {
+                if (\is_resource($pipe)) {
+                    fclose($pipe);
+                }
+            }
+            proc_close($proc);
         }
-        fclose($pipes[1]);
-        fclose($pipes[2]);
-        proc_close($proc);
 
         // $exitCode is guaranteed set: the loop only breaks after reading a finished status.
         if ($exitCode === 0) {
