@@ -1,6 +1,6 @@
 <div align="center">
 
-# Progress
+# php-progress
 
 [![CI](https://img.shields.io/github/actions/workflow/status/konradmichalik/php-progress/ci.yml?label=ci&logo=github)](https://github.com/konradmichalik/php-progress/actions/workflows/ci.yml)
 [![Supported PHP Versions](https://img.shields.io/packagist/dependency-v/konradmichalik/php-progress/php?logo=php)](https://packagist.org/packages/konradmichalik/php-progress)
@@ -8,26 +8,26 @@
 
 </div>
 
-A modern, **framework-agnostic** CLI progress bar & spinner library for PHP.
-Smooth sub-cell rendering, truecolor gradients with shimmer, wall-clock animation
-and a single dynamic line that reflows as information appears and disappears —
-inspired by Rich, tqdm and ora. No runtime dependencies beyond `ext-mbstring`.
+A modern, **framework-agnostic** CLI progress bar & spinner library for PHP — a single
+dynamic line with sub-cell smooth bars and truecolor gradients that reflows as
+information appears. Inspired by [Rich](https://github.com/Textualize/rich),
+[tqdm](https://github.com/tqdm/tqdm) and [ora](https://github.com/sindresorhus/ora);
+no runtime dependencies beyond `ext-mbstring`.
 
-```
-ver.di Migration  █████████▍────   67%  337/500  file /var/www…intro.mp4
-⠹ Fetching schema  host staging.example.org  (0:04)
-```
+<div align="center">
+
+![php-progress screencast](docs/screencast.gif)
+
+</div>
 
 ## 🚀 Features
 
 * **One engine, two presets** — a bar and a spinner are just column sets over the same live line
-* **Sub-cell smooth bar** — ⅛-block steps, truecolor gradient with shimmer, indeterminate pulse
-* **Dynamic fields** — `set()` / `clear()` make info appear and vanish; the line reflows, sticky fields survive
-* **Rich spinners** — frame styles (`dots`, `arc`, `star`, …), procedural `wave` / `comet`, or your own closure
-* **Wall-clock animation** — stays smooth whether you update 10 or 10,000 times per second
-* **Honest degradation** — 256/basic/`NO_COLOR`, ASCII on non-UTF-8 terminals, plain log lines without a TTY
-* **Batteries included** — `track()` iterator, external-process runner, Symfony/TYPO3 output
-* **Terminal-injection safe** — untrusted labels, fields and log lines are sanitized before they reach the terminal
+* **Sub-cell smooth bar** — ⅛-block steps, truecolor gradient, wall-clock animation smooth at any update rate
+* **Dynamic fields** — `set()` / `clear()` reflow the line; sticky fields survive width pressure
+* **Rich spinners** — frame styles, procedural `wave` / `comet`, or your own closure
+* **Honest degradation** — 256/basic/`NO_COLOR`, ASCII fallback, plain log lines without a TTY
+* **Batteries included & safe** — `track()`, process runner, Symfony/TYPO3 output; untrusted input sanitized
 
 ## 🔥 Installation
 
@@ -133,31 +133,9 @@ No bridge needed — `to()` accepts a stream or any object exposing `getStream()
 $bar = Progress::bar(500, 'Import')->to($output)->start();
 ```
 
-## 🖥️ Degradation
-
-| Environment | Behaviour |
-|---|---|
-| Truecolor TTY | Gradient + shimmer, ⅛-block sub-cell bar, OSC 9;4 taskbar progress |
-| 256 / basic / `NO_COLOR` | Colors quantized or dropped, structure preserved |
-| Non-UTF-8 locale | ASCII theme (`#`/`-`, `OK`/`FAIL`, line spinner) |
-| No TTY (CI, pipe) | Plain status lines, throttled to ~2s or every 10% |
-| Narrow terminal | Columns degrade/drop by priority; sticky fields survive |
-
-A live line never gets stuck: a forgotten `finish()`, an uncaught exception or a
-`break` out of `track()` all restore the cursor (via the generator's `finally`, the
-handle's destructor and, with `ext-pcntl`, a SIGINT/SIGTERM handler).
-
 ## 🧑‍💻 Contributing
 
-Issues and pull requests are welcome.
-
-```bash
-composer test       # deterministic frame-capture suite (injected clock + fake caps)
-composer analyse    # PHPStan, level max
-composer check      # both
-
-php examples/showcase.php all   # see colour & animation in a real terminal
-```
+Issues and pull requests are welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## 📄 License
 
