@@ -64,3 +64,5 @@ jobs:
         with:
           file: coverage.xml
           format: clover
+          # Non-fatal until the repository is connected on coveralls.io.
+          fail-on-error: false
