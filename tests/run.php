@@ -71,6 +71,35 @@ assert_true(str_contains($mid, '%'), "34 cols: percent survives ({$mid})");
 assert_true(!str_contains($mid, 'eta') && !str_contains($mid, 'it/s'), '34 cols: eta+rate dropped');
 assert_true(!str_contains($mid, '/1000'), '34 cols: count dropped');
 
+echo "-- reflow: bar reaches comfort width instead of starving while columns still hold space\n";
+// Regression: the flex bar must not collapse toward its minWidth() while there
+// is still slack to reclaim -- a droppable column (count) or an un-degraded
+// label present means the layout should have fed the bar first. This pins the
+// old 33 -> 7 (full label + count kept, bar starved) reflow bug at w=64.
+$barWidth = static function (string $frame): int {
+    // Bar alphabet: full block, 1/8..7/8 partials, and the track dash.
+    return preg_match('/[\x{2500}\x{2588}-\x{258F}]+/u', $frame, $m) === 1
+        ? \KonradMichalik\PhpProgress\Support\Text::width($m[0])
+        : 0;
+};
+foreach ([90, 64, 46, 34, 26] as $w) {
+    [$stream, $read] = memStream();
+    $ms = 0.0;
+    $bar = Live::bar(100, 'A rather long migration label')
+        ->to($stream)->caps(new Capabilities(true, $w, 'none', true))
+        ->clock(function () use (&$ms) { return $ms; })->start();
+    $bar->set('mode', 'IRRE', sticky: true);
+    $ms += 100; $bar->progress(67); $bar->tick();
+    $all = frames($read());
+    $last = rtrim((string) end($all));
+    $bw = $barWidth($last);
+    // 'migration label' only survives in the un-degraded label; count as '/100'.
+    $hasSlack = str_contains($last, 'migration label') || str_contains($last, '/100');
+    if ($hasSlack) {
+        assert_true($bw >= 12, "width {$w}: bar at comfort (>=12) while slack remains ({$bw}: {$last})");
+    }
+}
+
 echo "-- sticky fields survive width pressure\n";
 [$stream, $read] = memStream();
 $ms = 0.0;

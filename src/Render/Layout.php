@@ -19,6 +19,15 @@ final class Layout
 {
     private const SEP = '  ';
 
+    /**
+     * Width the flex bar should reach before we stop sacrificing other columns.
+     * Kept separate from the bar's hard minWidth(): the bar must not silently
+     * starve to its floor while lower-priority columns still hold space -- we
+     * degrade/drop those first, and only let the bar dip below comfort once
+     * nothing droppable remains (tighten() returns false).
+     */
+    private const FLEX_COMFORT = 12;
+
     /** @param list<Segment> $segments */
     public function __construct(
         private readonly array $segments,
@@ -62,7 +71,11 @@ final class Layout
             $gaps = max(0, $parts - 1);
             $flexAvail = $frame->width - $fixedW - $gaps * $sepW;
 
-            $fits = $flex !== null ? $flexAvail >= $flex->minWidth() : $flexAvail >= 0;
+            // Aim for a comfortable bar (capped by flexMax, so an explicit small
+            // barWidth() stays small); tighten() falls back to minWidth once
+            // there is nothing left to sacrifice.
+            $comfort = $flex !== null ? min($this->flexMax, self::FLEX_COMFORT) : 0;
+            $fits = $flex !== null ? $flexAvail >= $comfort : $flexAvail >= 0;
             if ($fits) {
                 break;
             }
