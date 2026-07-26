@@ -79,9 +79,7 @@ final class Proc
 
     public function run(): int
     {
-        $live = $this->live ?? ($this->parser !== null
-            ? Live::bar(100.0, $this->label)->columns('label', 'bar', 'percent', 'fields', 'elapsed')
-            : Live::spinner($this->label));
+        $live = $this->live ?? $this->defaultLive();
         $live->start();
 
         $spec = [
@@ -89,12 +87,10 @@ final class Proc
             1 => ['pipe', 'w'],
             2 => ['pipe', 'w'],
         ];
-        $proc = proc_open($this->cmd, $spec, $pipes);
-        if (!\is_resource($proc)) {
-            $live->fail('failed to start process');
-
-            return 1;
-        }
+        // @ suppresses the PHP warning when the program cannot be spawned; the
+        // false return is handled explicitly below.
+        $proc = @proc_open($this->cmd, $spec, $pipes);
+        if (!\is_resource($proc)) { return $this->failedToStart($live); }
         stream_set_blocking($pipes[1], false);
         stream_set_blocking($pipes[2], false);
 
@@ -185,6 +181,27 @@ final class Proc
         }
 
         return (int) $exitCode;
+    }
+
+    /**
+     * @codeCoverageIgnore proc_open returns false only in rare, platform-specific
+     * conditions (e.g. a malformed spec); it is not deterministically
+     * reproducible across the supported PHP versions -- on Linux a missing
+     * binary still yields a resource whose child exits 127.
+     */
+    private function failedToStart(Live $live): int
+    {
+        $live->fail('failed to start process');
+
+        return 1;
+    }
+
+    /** The Live used when the caller did not supply one via ->live(). */
+    private function defaultLive(): Live
+    {
+        return $this->parser !== null
+            ? Live::bar(100.0, $this->label)->columns('label', 'bar', 'percent', 'fields', 'elapsed')
+            : Live::spinner($this->label);
     }
 
     private function handleLine(Live $live, string $stream, string $line): void

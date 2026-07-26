@@ -20,9 +20,19 @@ composer install
 
 ## Run tests
 
+The suite is written with PHPUnit and stays deterministic by injecting a fake
+clock and simulated terminal capabilities (no real TTY, wall clock or environment).
+
 ```bash
-# Deterministic frame-capture suite (injected clock + fake terminal capabilities)
+# Run the test suite
 composer test
+
+# Run a single test or file
+vendor/bin/phpunit --filter testFooBar
+vendor/bin/phpunit tests/Render/LayoutTest.php
+
+# Run with line coverage (requires Xdebug or PCOV)
+composer test:coverage
 ```
 
 ## Run static code analysis

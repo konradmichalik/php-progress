@@ -18,8 +18,17 @@ final class Capabilities
     public static function detect($stream): self
     {
         $tty = @stream_isatty($stream);
-        $width = self::detectWidth($tty);
 
+        return self::classify($tty, self::detectWidth($tty));
+    }
+
+    /**
+     * Resolve colour depth and unicode support from the environment. Split from
+     * detect() (which performs the stream I/O) so these env-driven decisions are
+     * unit-testable without a real terminal.
+     */
+    public static function classify(bool $tty, int $width): self
+    {
         $colors = 'none';
         if ($tty && getenv('NO_COLOR') === false) {
             $ct = strtolower((string) getenv('COLORTERM'));
@@ -44,12 +53,15 @@ final class Capabilities
     {
         $width = (int) (getenv('COLUMNS') ?: 0);
         if ($width <= 0 && $tty && \function_exists('exec')) {
-            $out = @exec('stty size 2>/dev/null');
-            if (\is_string($out) && preg_match('/^\d+\s+(\d+)$/', trim($out), $m)) {
-                $width = (int) $m[1];
-            }
+            $width = self::parseSttySize((string) @exec('stty size 2>/dev/null')) ?? 0;
         }
 
         return $width > 0 ? $width : 80;
+    }
+
+    /** Extract the column count from `stty size` output ("<rows> <cols>"); null if unparseable. */
+    public static function parseSttySize(string $out): ?int
+    {
+        return preg_match('/^\d+\s+(\d+)$/', trim($out), $m) === 1 ? (int) $m[1] : null;
     }
 }

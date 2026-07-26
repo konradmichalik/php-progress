@@ -93,7 +93,7 @@ final class Layout
             $key = $seg->key();
             if ($seg instanceof FlexSegment) {
                 $barW = $this->expand ? $flexAvail : min($flexAvail, $this->flexMax);
-                $barW = max(3, $barW);
+                $barW = max($seg->minWidth(), $barW);
                 $out[] = $seg->renderFlex($task, $frame, $barW)->out($frame->colored());
                 $visible += $barW;
                 continue;

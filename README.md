@@ -2,9 +2,12 @@
 
 # php-progress
 
+[![Latest Version](https://img.shields.io/packagist/v/konradmichalik/php-progress?label=version&logo=packagist)](https://packagist.org/packages/konradmichalik/php-progress)
+[![Coverage](https://img.shields.io/coverallsCoverage/github/konradmichalik/php-progress?logo=coveralls)](https://coveralls.io/github/konradmichalik/php-progress)
 [![CI](https://img.shields.io/github/actions/workflow/status/konradmichalik/php-progress/ci.yml?label=ci&logo=github)](https://github.com/konradmichalik/php-progress/actions/workflows/ci.yml)
 [![Supported PHP Versions](https://img.shields.io/packagist/dependency-v/konradmichalik/php-progress/php?logo=php)](https://packagist.org/packages/konradmichalik/php-progress)
 [![License](https://img.shields.io/packagist/l/konradmichalik/php-progress)](LICENSE)
+[![Packagist Downloads](https://img.shields.io/packagist/dt/konradmichalik/php-progress?color=brightgreen)](https://packagist.org/packages/konradmichalik/php-progress)
 
 </div>
 
