@@ -12,7 +12,8 @@
         "ext-mbstring": "*"
     },
     "require-dev": {
-        "phpstan/phpstan": "^2.2"
+        "phpstan/phpstan": "^2.2",
+        "phpunit/phpunit": "^10.5"
     },
     "suggest": {
         "symfony/console": "Pass \\$output->getStream() to ->to() for Symfony/TYPO3 commands"
@@ -20,8 +21,15 @@
     "autoload": {
         "psr-4": { "KonradMichalik\\PhpProgress\\": "src/" }
     },
+    "autoload-dev": {
+        "psr-4": { "KonradMichalik\\PhpProgress\\Tests\\": "tests/" }
+    },
     "scripts": {
-        "test": "php tests/run.php",
+        "test": "phpunit",
+        "test:coverage": [
+            "@putenv XDEBUG_MODE=coverage",
+            "phpunit -d pcov.enabled=0 --coverage-text"
+        ],
         "analyse": "phpstan analyse",
         "check": [
             "@analyse",

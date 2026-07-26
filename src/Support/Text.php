@@ -118,9 +118,6 @@ final class Text
         if ($max <= 0) {
             return '';
         }
-        if (self::width(self::stripAnsi($s)) <= $max) {
-            return $s;
-        }
         $tokens = preg_split(
             '/(\e\][^\x07\e]*(?:\x07|\e\\\\)|\e\[[0-9;?]*[ -\/]*[@-~])/u',
             $s,
@@ -146,7 +143,8 @@ final class Text
             }
         }
 
-        return $out . ($sawEscape ? "\e[0m" : '');
+        // Everything fit within the budget: return the original untouched.
+        return $s;
     }
 
     /**

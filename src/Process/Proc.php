@@ -79,9 +79,7 @@ final class Proc
 
     public function run(): int
     {
-        $live = $this->live ?? ($this->parser !== null
-            ? Live::bar(100.0, $this->label)->columns('label', 'bar', 'percent', 'fields', 'elapsed')
-            : Live::spinner($this->label));
+        $live = $this->live ?? $this->defaultLive();
         $live->start();
 
         $spec = [
@@ -89,7 +87,9 @@ final class Proc
             1 => ['pipe', 'w'],
             2 => ['pipe', 'w'],
         ];
-        $proc = proc_open($this->cmd, $spec, $pipes);
+        // @ suppresses the PHP warning when the program cannot be spawned; the
+        // false return is handled explicitly below.
+        $proc = @proc_open($this->cmd, $spec, $pipes);
         if (!\is_resource($proc)) {
             $live->fail('failed to start process');
 
@@ -185,6 +185,14 @@ final class Proc
         }
 
         return (int) $exitCode;
+    }
+
+    /** The Live used when the caller did not supply one via ->live(). */
+    private function defaultLive(): Live
+    {
+        return $this->parser !== null
+            ? Live::bar(100.0, $this->label)->columns('label', 'bar', 'percent', 'fields', 'elapsed')
+            : Live::spinner($this->label);
     }
 
     private function handleLine(Live $live, string $stream, string $line): void

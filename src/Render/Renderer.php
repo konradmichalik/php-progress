@@ -58,11 +58,6 @@ final class Renderer
         return ($this->clock)();
     }
 
-    public function caps(): Capabilities
-    {
-        return $this->caps;
-    }
-
     public function start(): void
     {
         $this->active = true;
@@ -71,9 +66,7 @@ final class Renderer
             self::$cursorStreams[(int) $this->stream] = $this->stream;
             if (!self::$shutdownRegistered) {
                 self::$shutdownRegistered = true;
-                register_shutdown_function(static function (): void {
-                    self::restoreTerminal();
-                });
+                register_shutdown_function(self::restoreTerminal(...));
             }
             if ($this->handleSignals) {
                 self::installSignalHandlers();
@@ -105,21 +98,31 @@ final class Renderer
         }
         self::$signalsInstalled = true;
 
-        $handler = static function (int $signo): void {
-            self::restoreTerminal();
-            if (\function_exists('pcntl_signal')) {
-                pcntl_signal($signo, SIG_DFL);
-            }
-            if (\function_exists('posix_kill') && \function_exists('posix_getpid')) {
-                posix_kill(posix_getpid(), $signo);
-            } else {
-                exit(128 + $signo);
-            }
-        };
-
         pcntl_async_signals(true);
-        pcntl_signal(SIGINT, $handler);
-        pcntl_signal(SIGTERM, $handler);
+        pcntl_signal(SIGINT, self::handleSignal(...));
+        pcntl_signal(SIGTERM, self::handleSignal(...));
+    }
+
+    /**
+     * Restore the terminal, then re-raise the signal with its default
+     * disposition so the process still exits with the conventional 128+signo
+     * code.
+     *
+     * @codeCoverageIgnore This cannot run in-process -- it re-raises the signal,
+     * which would terminate the test runner. It is validated end-to-end by
+     * SignalTest, which drives it in a real child process.
+     */
+    private static function handleSignal(int $signo): void
+    {
+        self::restoreTerminal();
+        if (\function_exists('pcntl_signal')) {
+            pcntl_signal($signo, SIG_DFL);
+        }
+        if (\function_exists('posix_kill') && \function_exists('posix_getpid')) {
+            posix_kill(posix_getpid(), $signo);
+        } else {
+            exit(128 + $signo);
+        }
     }
 
     public function draw(Task $task, Layout $layout, bool $force = false): void

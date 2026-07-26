@@ -6,7 +6,7 @@ declare(strict_types=1);
 // simulated TTY caps, signals readiness via $argv[2], then spins until a
 // signal arrives. php-progress's handler must restore the cursor and re-raise.
 
-require __DIR__ . '/bootstrap.php';
+require __DIR__ . '/../vendor/autoload.php';
 
 use KonradMichalik\PhpProgress\Live;
 use KonradMichalik\PhpProgress\Terminal\Capabilities;
