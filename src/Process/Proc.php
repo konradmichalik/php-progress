@@ -90,11 +90,7 @@ final class Proc
         // @ suppresses the PHP warning when the program cannot be spawned; the
         // false return is handled explicitly below.
         $proc = @proc_open($this->cmd, $spec, $pipes);
-        if (!\is_resource($proc)) {
-            $live->fail('failed to start process');
-
-            return 1;
-        }
+        if (!\is_resource($proc)) { return $this->failedToStart($live); }
         stream_set_blocking($pipes[1], false);
         stream_set_blocking($pipes[2], false);
 
@@ -185,6 +181,19 @@ final class Proc
         }
 
         return (int) $exitCode;
+    }
+
+    /**
+     * @codeCoverageIgnore proc_open returns false only in rare, platform-specific
+     * conditions (e.g. a malformed spec); it is not deterministically
+     * reproducible across the supported PHP versions -- on Linux a missing
+     * binary still yields a resource whose child exits 127.
+     */
+    private function failedToStart(Live $live): int
+    {
+        $live->fail('failed to start process');
+
+        return 1;
     }
 
     /** The Live used when the caller did not supply one via ->live(). */

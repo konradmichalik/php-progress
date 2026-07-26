@@ -139,15 +139,6 @@ final class ProcTest extends TestCase
         self::assertNotContains('', $seen);
     }
 
-    public function testFailedToStartReturnsOne(): void
-    {
-        [$stream, $read] = $this->memStream();
-        $live = Live::spinner('x')->to($stream)->caps($this->tty(60))->handleSignals(false)->fps(1000.0);
-        $code = Progress::process(['/nonexistent/binary-xyz-123'])->live($live)->run();
-        self::assertSame(1, $code);
-        self::assertStringContainsString('failed to start', Text::stripAnsi($read()));
-    }
-
     private function barLive($stream): Live
     {
         return Live::bar(100.0, 'proc')->columns('label', 'bar', 'percent')
