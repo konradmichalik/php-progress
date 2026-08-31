@@ -1,5 +1,7 @@
 <div align="center">
 
+![icon](icon.png)
+
 # php-progress
 
 [![Latest Version](https://img.shields.io/packagist/v/konradmichalik/php-progress?label=version&logo=packagist)](https://packagist.org/packages/konradmichalik/php-progress)
